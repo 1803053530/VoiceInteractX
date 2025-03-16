@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum=1.0, user-scalable=no" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>迅飞语音听写（流式版）WebAPI</title>
+    <style>
+        /* 添加聊天容器样式 */
+        #message-container {
+            position: fixed;
+            top: 0;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f5f5f5;
+        }
+
+        /* 消息气泡样式 */
+        .message-bubble {
+            max-width: 70%;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            word-break: break-word;
+        }
+
+        /* 底部输入栏样式 */
+        #voice-box {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 10px;
+            display: flex;
+            gap: 8px;
+            border-top: 1px solid #ddd;
+        }
+
+        .message-bubble {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            max-width: 85%;
+            /* 增加最大宽度 */
+        }
+
+        /* 用户图标样式 */
+        .user-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #ddd;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        /* 添加伪元素创建笑脸效果 */
+        .user-icon::before {
+            content: "😊";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+        }
+
+        /* 文本容器 */
+        .bubble-text {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+    <script async src="https://hm.baidu.com/hm.js?85fad12bb9a6dab448f4eff0a19299a5"></script>
+</head>
+
+<body>
+    <!-- 聊天记录容器 -->
+    <div id="message-container"></div>
+
+    <!-- 底部输入栏 -->
+    <section id="voice-box">
+        <input type="search" id="voice-txt" style="flex:1; 
+                      padding:8px 15px;
+                      border-radius:20px;
+                      border:1px solid #ddd;
+                      outline:none" placeholder="点击开始按钮说话" />
+        <button id="start-btn" style="padding:8px 20px;
+                       background:green;
+                       border:none;
+                       border-radius:20px;
+                       color:white;
+                       cursor: pointer;">开始识别</button>
+    </section>
+
+    <script src="./js/crypto-js.min.js"></script>
+    <script src="./js/xf-voice-dictation.js"></script>
+
+    <script>
+        window.onload = function () {
+            const voiceTxt = document.querySelector('#voice-txt');
+            const startBtn = document.querySelector('#start-btn');
+            const messageContainer = document.querySelector('#message-container');
+
+            function createBubble(text) {
+                const bubble = document.createElement('div');
+                bubble.className = 'message-bubble';
+
+                const icon = document.createElement('div');
+                icon.className = 'user-icon';
+
+                const textContainer = document.createElement('div');
+                textContainer.className = 'bubble-text';
+                textContainer.textContent = text;
+
+                bubble.appendChild(icon);
+                bubble.appendChild(textContainer);
+                return bubble;
+            }
+
+            // 修改后的实例化配置
+            const xfVoice = new XfVoiceDictation({
+                APPID: '830cf0cc',
+                APISecret: 'OGI3MWY0MTUwMGViNTRhNmM5Zjc0MjRk',
+                APIKey: '68900ab1cea369975f7ccf90bbf7ee36',
+
+                onWillStatusChange: function (oldStatus, newStatus) {
+                    // 开始识别时清空输入框
+                    if (newStatus === 'recording') voiceTxt.value = '';
+                },
+                onTextChange: function (text) {
+                    voiceTxt.value = text;
+
+                    // 新增：实时更新最后一条消息
+                    const lastBubble = messageContainer.lastElementChild;
+                    if (lastBubble && !lastBubble.dataset.final) {
+                        const textContainer = lastBubble.querySelector('.bubble-text');
+                        if (textContainer) {
+                            textContainer.textContent = text;
+                        } else {
+                            // 容错处理
+                            lastBubble.textContent = text;
+                        }
+                    } else {
+                        const newBubble = createBubble(text);
+                        messageContainer.appendChild(newBubble);
+                    }
+
+                    // 自动滚动到底部
+                    messageContainer.scrollTop = messageContainer.scrollHeight;
+
+                    // 3秒自动停止逻辑
+                    if (text) {
+                        clearTimeout(this.timer);
+                        this.timer = setTimeout(() => {
+                            this.stop();
+                            // 标记为最终结果
+                            const finalBubble = messageContainer.lastElementChild;
+                            if (finalBubble) finalBubble.dataset.final = true;
+                        }, 3000);
+                    }
+                }
+            });
+
+            // 开始识别
+            startBtn.onclick = () => xfVoice.start();
+
+            // 新增：回车键支持
+            voiceTxt.onkeypress = (e) => {
+                if (e.key === 'Enter') xfVoice.start();
+            };
+        };
+    </script>
+</body>
+
+</html>
